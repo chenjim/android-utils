@@ -88,7 +88,7 @@ object Log {
             PRE = if (tagPre.isNullOrEmpty()) {
                 it.packageName.takeLast(4).uppercase() + "_"
             } else {
-                tagPre.uppercase() + "_"
+                tagPre.uppercase() + "-"
             }
             d("write log to dir: ${logDir?.path}")
         }
@@ -108,6 +108,11 @@ object Log {
     @JvmStatic
     fun setLogFileMaxLen(len: Long) {
         logFileMaxLen = len
+    }
+
+    @JvmStatic
+    fun setTagPre(tagPre: String) {
+        PRE = tagPre.uppercase() + "-"
     }
 
     private fun objectToString(obj: Any?): String {
