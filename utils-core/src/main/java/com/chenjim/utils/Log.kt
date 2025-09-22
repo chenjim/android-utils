@@ -49,6 +49,8 @@ object Log {
      */
     private var logFileMaxLen = 5 * 1024 * 1024L
 
+    private var isDebug = false;
+
     var logDir: File? = null
         private set
 
@@ -58,7 +60,7 @@ object Log {
 
     private val logHandler: Handler
 
-    private var PRE = "LOG_"
+    private var PRE = "JG-"
 
     init {
         val handlerThread = HandlerThread("Logger")
@@ -67,52 +69,91 @@ object Log {
     }
 
     /**
-     * 初始化，不是必须
-     * 当需要写入到日志文件时，必需
-     * 日志文件位置'/sdcard/Android/data/com.xxx.xxx/files/log/'
-     *
-     * @param writeFileContext 空，不写入日志
-     * 非空，写入日志，用来获取应用的数据存储目录，
-     * 不需要权限[Context.getExternalFilesDir]
-     * Auth chenjim me@h89.cn
-     * @param level            默认值 [Log.VERBOSE]
+     * 获取配置构建器，支持链式调用
+     * 使用方式: Log.config().setDebug(true).setLogFileMaxLen(1024*1024).setTagPre("MyApp").apply()
      */
     @JvmStatic
-    fun init(writeFileContext: Context?, level: Int = Log.VERBOSE, tagPre: String? = null) {
-        writeFileContext?.let {
-            val path = File(it.getExternalFilesDir(null), "log")
-            if (!path.exists()) {
-                path.mkdirs()
-            }
-            logDir = path
-            PRE = if (tagPre.isNullOrEmpty()) {
-                it.packageName.takeLast(4).uppercase() + "_"
-            } else {
-                tagPre.uppercase() + "-"
-            }
-            d("write log to dir: ${logDir?.path}")
-        }
-        logLevel = level
+    fun config(): LogConfig {
+        return LogConfig()
     }
 
     /**
-     * 配置日志输出级别，默认所有[.logLevel]
-     *
-     * @param level
+     * 日志配置构建器类，支持链式调用
      */
-    @JvmStatic
-    fun init(level: Int = Log.VERBOSE) {
-        init(null, level)
-    }
+    class LogConfig {
+        private var context: Context? = null
+        private var level: Int = Log.VERBOSE // 默认值
+        private var debug: Boolean = false // 默认值
+        private var maxLen: Long = 5 * 1024 * 1024L // 默认5M
+        private var tagPre: String = "JG" // 默认前缀
 
-    @JvmStatic
-    fun setLogFileMaxLen(len: Long) {
-        logFileMaxLen = len
-    }
+        /**
+         * 设置日志写入文件的上下文
+         * 日志文件位置'/sdcard/Android/data/com.xxx.xxx/files/log/'
+         */
+        fun setLogToFile(context: Context): LogConfig {
+            this.context = context
+            return this
+        }
 
-    @JvmStatic
-    fun setTagPre(tagPre: String) {
-        PRE = tagPre.uppercase() + "-"
+        /**
+         * 设置日志级别，默认 Log.VERBOSE
+         */
+        fun setLevel(level: Int = Log.VERBOSE): LogConfig {
+            this.level = level
+            return this
+        }
+
+        /**
+         * 设置是否是Debug模式，默认 false
+         */
+        fun setDebug(debug: Boolean = false): LogConfig {
+            this.debug = debug
+            return this
+        }
+
+        /**
+         * 设置单个日志文件最大大小，默认 5MB
+         */
+        fun setLogFileMaxLen(len: Long = 5 * 1024 * 1024L): LogConfig {
+            this.maxLen = len
+            return this
+        }
+
+        /**
+         * 设置日志标签前缀，默认 "JG"
+         */
+        fun setTagPre(tagPre: String = "JG"): LogConfig {
+            this.tagPre = tagPre
+            return this
+        }
+
+        /**
+         * 应用所有配置
+         */
+        fun apply() {
+            // 设置日志级别
+            logLevel = level
+            
+            // 设置Debug模式
+            isDebug = debug
+            
+            // 设置文件大小限制
+            logFileMaxLen = maxLen
+            
+            // 设置标签前缀
+            PRE = tagPre.uppercase() + "-"
+            
+            // 设置日志文件目录
+            context?.let {
+                val path = File(it.getExternalFilesDir(null), "log")
+                if (!path.exists()) {
+                    path.mkdirs()
+                }
+                logDir = path
+                d("Log configured - write to dir: ${logDir?.path}")
+            }
+        }
     }
 
     private fun objectToString(obj: Any?): String {
@@ -175,7 +216,7 @@ object Log {
         val finalTag = PRE + (tag ?: "N")
         val builder = StringBuilder().apply {
             append("[").append(thread.id).append("],")
-            if (logLevel > Log.WARN) {
+            if (isDebug) {
                 append(thread.name).append(",(").append(element.fileName).append(":").append(element.lineNumber)
                     .append("),")
             }
